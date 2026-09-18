@@ -7,17 +7,16 @@ DATA_FOLDER = "PRE_02_mapreduce/data"
 INPUT_FOLDER = "PRE_02_mapreduce/temp/input"
 OUTPUT_FOLDER = "PRE_02_mapreduce/temp/output"
 
+
 #
 # Esta es la abstracción de la función hadoop que simula el comportamiento de un job de Hadoop.
-#  
-
+#
 def hadoop(
     input_folder,
     output_folder,
     mapper_fn,
     reducer_fn,
 ):
-
 
     def read_records_from_input(folder):
         sequence = []
@@ -41,8 +40,8 @@ def hadoop(
         if os.path.exists(folder):
             raise FileExistsError("La carpeta ya existe")
 
-
     check_folder_exists(output_folder)
+    os.mkdir(output_folder)
 
     sequence = read_records_from_input(folder=input_folder)
     sequence = mapper_fn(sequence)
@@ -51,19 +50,21 @@ def hadoop(
     save_results_to_output(output_folder, sequence)
     create_success_file(output_folder)
 
-    
 
 #
 # Este es el código especifico del experimento
 #
+
 
 def clear_folder(folder):
     if os.path.exists(folder):
         for file in glob.glob(f"{folder}/*"):
             os.remove(file)
 
+
 def create_folder(input_folder):
     os.makedirs(input_folder)
+
 
 def initialize_folder(input_folder):
     if os.path.exists(input_folder):
@@ -72,9 +73,8 @@ def initialize_folder(input_folder):
         create_folder(input_folder)
 
 
-
 def generate_file_copies(data_folder, input_folder, n):
-    
+
     for file in glob.glob(f"{data_folder}/*"):
         with open(file, "r", encoding="utf-8") as f:
             text = f.read()
@@ -82,9 +82,9 @@ def generate_file_copies(data_folder, input_folder, n):
         for i in range(1, n + 1):
             raw_filename_with_extension = os.path.basename(file)
 
-            raw_filename_without_extension = os.path.splitext(raw_filename_with_extension)[
-            0
-        ]
+            raw_filename_without_extension = os.path.splitext(
+                raw_filename_with_extension
+            )[0]
 
             new_filename = f"{raw_filename_without_extension}_{i:05d}.txt"
 
@@ -113,21 +113,34 @@ def reducer(pairs_sequence):
     return result
 
 
+def delete_folder(folder):
+    if os.path.exists(folder):
+        for file in glob.glob(f"{folder}/*"):
+            os.remove(file)
+        os.rmdir(folder)
 
 
-n = 1000
+def main():
 
-initialize_folder(INPUT_FOLDER)
-generate_file_copies(DATA_FOLDER, INPUT_FOLDER, n)
+    n = 1000
 
-start_time = time.time()
+    initialize_folder(INPUT_FOLDER)
+    delete_folder(OUTPUT_FOLDER)
+    generate_file_copies(DATA_FOLDER, INPUT_FOLDER, n)
 
-hadoop(
-    input_folder=INPUT_FOLDER,
-    output_folder=OUTPUT_FOLDER,
-    mapper_fn=mapper,
-    reducer_fn=reducer,
-)
+    start_time = time.time()
 
-end_time = time.time()
-print(f"Tiempo de ejecución: {end_time - start_time:.2f} segundos")
+    hadoop(
+        input_folder=INPUT_FOLDER,
+        output_folder=OUTPUT_FOLDER,
+        mapper_fn=mapper,
+        reducer_fn=reducer,
+    )
+
+    end_time = time.time()
+    print(f"Tiempo de ejecución: {end_time - start_time:.2f} segundos")
+
+
+if __name__ == "__main__":
+
+    main()
