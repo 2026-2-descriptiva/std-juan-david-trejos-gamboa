@@ -1,12 +1,52 @@
+"""
+Escriba el codigo que ejecute la accion solicitada en cada pregunta. Los
+datos requeridos se encuentran en el archivo data.csv. En este laboratorio
+solo puede utilizar las funciones y librerias basicas de python. No puede
+utilizar pandas, numpy o scipy.
+"""
+
+
 def pregunta_08():
     """
-    Repita la pregunta 7, pero ahora cada lista de letras debe contener cada
-    letra una sola vez y estar ordenada alfabéticamente. Retorne una lista de
-    tuplas `(valor, letras)` ordenada por el valor.
+    Genere una lista de tuplas, donde el primer elemento de cada tupla
+    contiene  el valor de la segunda columna; la segunda parte de la tupla
+    es una lista con las letras (ordenadas y sin repetir letra) de la
+    primera  columna que aparecen asociadas a dicho valor de la segunda
+    columna.
 
-    Ejemplo del formato de la respuesta:
+    Rta/
+    [(0, ['C']),
+     (1, ['B', 'E']),
+     (2, ['A', 'E']),
+     (3, ['A', 'B', 'D', 'E']),
+     (4, ['B', 'E']),
+     (5, ['B', 'C', 'D', 'E']),
+     (6, ['A', 'B', 'C', 'E']),
+     (7, ['A', 'C', 'D', 'E']),
+     (8, ['A', 'B', 'D', 'E']),
+     (9, ['A', 'B', 'C', 'E'])]
 
-        [(0, ["C"]), (1, ["B", "E"]), (2, ["A", "E"]), ...]
     """
+    from collections import defaultdict
 
-    raise NotImplementedError
+    data = defaultdict(set)
+
+    with open('./files/input/data.csv', 'r') as file:
+        
+        for line in file:
+            newLine = line.strip().split('\t')
+            col1_value = newLine[0]
+            col2_value = newLine[1]
+
+            data[col2_value].add(col1_value)
+
+    answer = []
+    for key, value in data.items():
+        answer.append(
+            (int(key), sorted(value))
+        )
+
+    return sorted(answer)
+
+
+print(pregunta_08())

@@ -1,11 +1,24 @@
+"""
+Escriba el codigo que ejecute la accion solicitada en cada pregunta. Los
+datos requeridos se encuentran en el archivo data.csv. En este laboratorio
+solo puede utilizar las funciones y librerias basicas de python. No puede
+utilizar pandas, numpy o scipy.
+"""
+
+
 def pregunta_01():
     """
-    Calcule la suma de los valores de la segunda columna (`value`) del
-    archivo `data/data.csv.gz` y retorne el resultado como un número entero.
+    Retorne la suma de la segunda columna.
+    Rta/
+    214
 
-    Ejemplo del formato de la respuesta:
-
-        214
     """
+    total = 0
 
-    raise NotImplementedError
+    with open('./files/input/data.csv', 'r') as file:
+        for line in file:
+            newLine = line.strip().split('\t')
+            total += int(newLine[1])
+
+    return total
+

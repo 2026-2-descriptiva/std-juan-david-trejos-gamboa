@@ -1,12 +1,47 @@
+"""
+Escriba el codigo que ejecute la accion solicitada en cada pregunta. Los
+datos requeridos se encuentran en el archivo data.csv. En este laboratorio
+solo puede utilizar las funciones y librerias basicas de python. No puede
+utilizar pandas, numpy o scipy.
+"""
+
+
 def pregunta_09():
     """
-    Cuente cuántas veces aparece cada clave en la quinta columna (`metrics`)
-    de todo el archivo. Retorne un diccionario `{clave: cantidad}` con las
-    claves en orden alfabético.
+    Retorne un diccionario que contenga la cantidad de registros en que
+    aparece cada clave de la columna 5.
 
-    Ejemplo del formato de la respuesta:
+    Rta/
+    {'aaa': 13,
+     'bbb': 16,
+     'ccc': 23,
+     'ddd': 23,
+     'eee': 15,
+     'fff': 20,
+     'ggg': 13,
+     'hhh': 16,
+     'iii': 18,
+     'jjj': 18}}
 
-        {"aaa": 13, "bbb": 16, "ccc": 23, ...}
     """
 
-    raise NotImplementedError
+    from collections import defaultdict
+
+    data = defaultdict(int)
+
+    with open('./files/input/data.csv', 'r') as file:
+        
+        for line in file:
+            newLine = line.strip().split('\t')
+            codes = newLine[4].split(',')
+            
+            for code in codes:
+                separated_code = code.split(':')
+                string = separated_code[0]
+                
+                data[string] += 1
+    
+    return dict(sorted(data.items()))
+
+
+print(pregunta_09())
