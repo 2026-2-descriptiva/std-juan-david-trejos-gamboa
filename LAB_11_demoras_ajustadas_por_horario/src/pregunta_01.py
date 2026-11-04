@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -58,4 +60,84 @@ def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame]:
         ...
     """
 
-    raise NotImplementedError
+    activity_dir = Path(__file__).resolve().parents[1]
+    data_path = activity_dir / "data" / "flights_by_carrier_day_hour.csv.gz"
+    submission_dir = activity_dir / "submission"
+    submission_dir.mkdir(exist_ok=True)
+
+    flights = pd.read_csv(data_path, compression="gzip")
+
+    hourly = (
+        flights.groupby("scheduled_departure_hour", as_index=False)[
+            ["operated_flights", "delayed_departure_15_flights"]
+        ]
+        .sum()
+        .sort_values("scheduled_departure_hour")
+    )
+    hourly["delay_rate"] = (
+        hourly["delayed_departure_15_flights"] / hourly["operated_flights"]
+    )
+    hourly = hourly[
+        [
+            "scheduled_departure_hour",
+            "operated_flights",
+            "delayed_departure_15_flights",
+            "delay_rate",
+        ]
+    ]
+
+    hourly_rates = hourly[
+        ["scheduled_departure_hour", "delay_rate"]
+    ].rename(columns={"delay_rate": "hour_delay_rate"})
+    carrier_hours = flights.merge(
+        hourly_rates, on="scheduled_departure_hour", how="left", validate="many_to_one"
+    )
+    carrier_hours["expected_delayed_flights"] = (
+        carrier_hours["operated_flights"] * carrier_hours["hour_delay_rate"]
+    )
+
+    carriers = (
+        carrier_hours.groupby("reporting_airline", as_index=False)
+        .agg(
+            operated_flights=("operated_flights", "sum"),
+            delayed_departure_15_flights=(
+                "delayed_departure_15_flights",
+                "sum",
+            ),
+            expected_delayed_flights=("expected_delayed_flights", "sum"),
+        )
+    )
+    carriers = carriers[carriers["operated_flights"] >= 100_000].copy()
+    carriers["delay_rate"] = (
+        carriers["delayed_departure_15_flights"] / carriers["operated_flights"]
+    )
+    carriers["observed_to_expected_ratio"] = (
+        carriers["delayed_departure_15_flights"]
+        / carriers["expected_delayed_flights"]
+    )
+    carriers["crude_rank"] = (
+        carriers["delay_rate"].rank(method="min", ascending=False).astype(int)
+    )
+    carriers["adjusted_rank"] = (
+        carriers["observed_to_expected_ratio"]
+        .rank(method="min", ascending=False)
+        .astype(int)
+    )
+    carriers = carriers.sort_values("adjusted_rank")
+    carriers = carriers[
+        [
+            "reporting_airline",
+            "operated_flights",
+            "delayed_departure_15_flights",
+            "delay_rate",
+            "expected_delayed_flights",
+            "observed_to_expected_ratio",
+            "crude_rank",
+            "adjusted_rank",
+        ]
+    ]
+
+    hourly.to_csv(submission_dir / "hourly_delay_rates.csv", index=False)
+    carriers.to_csv(submission_dir / "carrier_adjusted_delays.csv", index=False)
+
+    return hourly, carriers
