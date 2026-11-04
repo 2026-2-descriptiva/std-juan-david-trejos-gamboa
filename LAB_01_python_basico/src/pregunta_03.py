@@ -1,31 +1,23 @@
-"""
-Escriba el codigo que ejecute la accion solicitada en cada pregunta. Los
-datos requeridos se encuentran en el archivo data.csv. En este laboratorio
-solo puede utilizar las funciones y librerias basicas de python. No puede
-utilizar pandas, numpy o scipy.
-"""
+import gzip
+
+
+def _read_rows():
+    with gzip.open("data/data.csv.gz", "rt") as f:
+        return [line.rstrip("\n").split("\t") for line in f if line.strip()]
 
 
 def pregunta_03():
     """
-    Retorne la suma de la columna 2 por cada letra de la primera columna como
-    una lista de tuplas (letra, suma) ordendas alfabeticamente.
+    Sume los valores de la segunda columna (`value`) para cada letra de la
+    primera columna (`letter`). Retorne una lista de tuplas `(letra, suma)`
+    ordenada alfabéticamente por la letra.
 
-    Rta/
-    [('A', 53), ('B', 36), ('C', 27), ('D', 31), ('E', 67)]
+    Ejemplo del formato de la respuesta:
 
+        [("A", 53), ("B", 36), ("C", 27), ...]
     """
 
-    data = {}
-
-    with open('./files/input/data.csv', 'r') as file:
-        for line in file:
-            newLine = line.strip().split('\t')
-            firstColumn = newLine[0]
-            if firstColumn not in data:
-                data[firstColumn] = int(newLine[1])
-            else:
-                data[firstColumn] += int(newLine[1])
-
-    return sorted(list(data.items()))
-
+    sums = {}
+    for row in _read_rows():
+        sums[row[0]] = sums.get(row[0], 0) + int(row[1])
+    return sorted(sums.items())

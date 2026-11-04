@@ -1,36 +1,25 @@
-"""
-Escriba el codigo que ejecute la accion solicitada en cada pregunta. Los
-datos requeridos se encuentran en el archivo data.csv. En este laboratorio
-solo puede utilizar las funciones y librerias basicas de python. No puede
-utilizar pandas, numpy o scipy.
-"""
+import gzip
+
+
+def _read_rows():
+    with gzip.open("data/data.csv.gz", "rt") as f:
+        return [line.rstrip("\n").split("\t") for line in f if line.strip()]
 
 
 def pregunta_11():
     """
-    Retorne un diccionario que contengan la suma de la columna 2 para cada
-    letra de la columna 4, ordenadas alfabeticamente.
+    La cuarta columna (`codes`) contiene letras minúsculas separadas por
+    comas. Para cada una de esas letras, sume los valores de la segunda
+    columna (`value`) de los registros en los que aparece. Retorne un
+    diccionario `{letra: suma}` con las letras en orden alfabético.
 
-    Rta/
-    {'a': 122, 'b': 49, 'c': 91, 'd': 73, 'e': 86, 'f': 134, 'g': 35}
+    Ejemplo del formato de la respuesta:
 
-
+        {"a": 122, "b": 49, "c": 91, ...}
     """
-    from collections import defaultdict
 
-    data = defaultdict(int)
-
-    with open('./files/input/data.csv', 'r') as file:
-        
-        for line in file:
-            newLine = line.strip().split('\t')
-            letters = newLine[3].split(',')
-            value = int(newLine[1])
-            
-            for letter in letters:
-                data[letter] += value
-    
-    return dict(sorted(data.items()))
-
-
-print(pregunta_11())
+    sums = {}
+    for row in _read_rows():
+        for code in row[3].split(","):
+            sums[code] = sums.get(code, 0) + int(row[1])
+    return dict(sorted(sums.items()))
