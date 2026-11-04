@@ -1,53 +1,94 @@
+from pathlib import Path
+
 import pandas as pd
 
 
-def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Una cadena de suministros de oficina vende mucho, pero la gerencia
-    sospecha que parte de esas ventas no deja utilidad. El archivo
-    `data/superstore_orders.csv.gz` tiene una fila por línea de pedido, con
-    el número de pedido (`Order ID`), las ventas (`Sales`), la utilidad
-    (`Profit`), el descuento aplicado (`Discount`, como proporción), el
-    segmento del cliente (`Customer Segment`) y la categoría del producto
-    (`Product Category`). Una utilidad negativa significa que la línea se
-    vendió con pérdida.
+    Una autoridad aeronáutica publica cada año un ranking de aerolíneas según
+    su tasa de demora, y algunas aerolíneas se quejan de que es injusto: las
+    demoras se acumulan a lo largo del día, de modo que una aerolínea con
+    muchos vuelos en la tarde y la noche parece peor aunque opere igual de
+    bien que las demás. Su tarea es construir un ranking que tenga en cuenta
+    la mezcla de horarios de cada aerolínea.
 
-    Use estas definiciones:
+    El archivo `data/flights_by_carrier_day_hour.csv.gz` tiene los vuelos
+    nacionales entre 2006 y 2008, agregados por año, mes, día de la semana,
+    hora programada de salida (`scheduled_departure_hour`) y aerolínea
+    (`reporting_airline`). Use las columnas `operated_flights` (vuelos
+    operados) y `delayed_departure_15_flights` (vuelos que salieron con 15
+    minutos o más de demora).
 
-    - Margen (`profit_margin`): utilidad sobre ventas.
-    - Línea con pérdida: una línea cuya utilidad es negativa.
-    - `loss_line_rate`: la proporción de líneas con pérdida.
-    - `lost_profit`: la suma de las pérdidas de las líneas con pérdida,
-      escrita como número positivo.
-    - Rango de descuento (`discount_band`): `0%` si no hubo descuento,
-      `1%-5%` si fue mayor que 0 y hasta 5 %, `6%-10%` si fue mayor que 5 % y
-      hasta 10 %, y `más de 10%` en otro caso.
+    Siga estos pasos:
 
-    Genere tres archivos en `submission/`, sin el índice de Pandas y con las
+    1. Calcule la tasa nacional de demora de cada hora programada de salida:
+       vuelos demorados sobre vuelos operados, con todas las aerolíneas
+       juntas.
+    2. Para cada aerolínea, calcule las demoras esperadas: en cada hora,
+       multiplique sus vuelos operados por la tasa nacional de esa hora, y
+       sume sobre todas las horas. Son las demoras que tendría si en cada hora
+       se comportara como el promedio nacional.
+    3. Divida las demoras observadas entre las esperadas. Un valor mayor que 1
+       significa que la aerolínea se demora más de lo que explican sus
+       horarios.
+
+    Genere dos archivos en `submission/`, sin el índice de Pandas y con las
     columnas en el orden indicado:
 
-    1. `profitability_summary.csv`, con una sola fila: `lines` (cantidad de
-       líneas), `orders` (pedidos distintos), `sales`, `profit`,
-       `profit_margin`, `loss_lines` (cantidad de líneas con pérdida),
-       `loss_line_rate` y `lost_profit`.
+    1. `hourly_delay_rates.csv`, con una fila por hora, de 0 a 23:
+       `scheduled_departure_hour`, `operated_flights`,
+       `delayed_departure_15_flights` y `delay_rate`.
 
-    2. `discount_summary.csv`, con una fila por rango de descuento, en el
-       orden en que se definieron arriba: `discount_band`, `lines`, `sales`,
-       `profit`, `profit_margin`, `loss_line_rate` y `lost_profit`.
+    2. `carrier_adjusted_delays.csv`, con una fila por aerolínea:
+       `reporting_airline`, `operated_flights`,
+       `delayed_departure_15_flights`, `delay_rate` (la tasa sin ajustar),
+       `expected_delayed_flights`, `observed_to_expected_ratio`, `crude_rank`
+       y `adjusted_rank`. Incluya solamente aerolíneas con al menos 100 000
+       vuelos operados. `crude_rank` es la posición según `delay_rate` y
+       `adjusted_rank` la posición según `observed_to_expected_ratio`; en
+       ambos, 1 es la peor aerolínea. Ordene la tabla por `adjusted_rank`.
 
-    3. `priority_segments.csv`, con los cinco segmentos segmento–categoría
-       que más utilidad pierden: `Customer Segment`, `Product Category`,
-       `lines`, `sales`, `profit`, `profit_margin` y `lost_profit`. Considere
-       solamente segmentos con al menos 100 líneas y ordénelos por
-       `lost_profit` de mayor a menor.
+    Compare los dos rankings: las aerolíneas que cambian de posición son las
+    que el ranking sin ajustar juzga mal por sus horarios.
 
-    La función también debe retornar las tres tablas, en el mismo orden.
+    La función también debe retornar las dos tablas, en el mismo orden.
 
-    Ejemplo del formato de `discount_summary.csv`:
+    Ejemplo del formato de `carrier_adjusted_delays.csv`:
 
-        discount_band,lines,sales,profit,profit_margin,loss_line_rate,...
-        0%,166,170539.05,29472.3789,0.1728,0.488,...
+        reporting_airline,operated_flights,...,crude_rank,adjusted_rank
+        EV,819223,...,1,1
         ...
     """
 
-    raise NotImplementedError
+    flights = pd.read_csv("data/flights_by_carrier_day_hour.csv.gz")
+    cols = ["operated_flights", "delayed_departure_15_flights"]
+
+    hourly = flights.groupby("scheduled_departure_hour", as_index=False)[cols].sum()
+    hourly["delay_rate"] = hourly[cols[1]] / hourly[cols[0]]
+
+    by_hour = (
+        flights.groupby(["reporting_airline", "scheduled_departure_hour"], as_index=False)[cols[0]]
+        .sum()
+        .merge(hourly[["scheduled_departure_hour", "delay_rate"]], on="scheduled_departure_hour")
+    )
+    by_hour["expected"] = by_hour[cols[0]] * by_hour["delay_rate"]
+    expected = by_hour.groupby("reporting_airline")["expected"].sum()
+
+    carriers = flights.groupby("reporting_airline")[cols].sum()
+    carriers = carriers[carriers[cols[0]] >= 100_000].copy()
+    carriers["delay_rate"] = carriers[cols[1]] / carriers[cols[0]]
+    carriers["expected_delayed_flights"] = expected
+    carriers["observed_to_expected_ratio"] = (
+        carriers[cols[1]] / carriers["expected_delayed_flights"]
+    )
+    carriers["crude_rank"] = carriers["delay_rate"].rank(ascending=False, method="min").astype(int)
+    carriers["adjusted_rank"] = (
+        carriers["observed_to_expected_ratio"].rank(ascending=False, method="min").astype(int)
+    )
+    carriers = carriers.sort_values("adjusted_rank").reset_index()
+
+    out = Path("submission")
+    out.mkdir(exist_ok=True)
+    hourly.to_csv(out / "hourly_delay_rates.csv", index=False)
+    carriers.to_csv(out / "carrier_adjusted_delays.csv", index=False)
+    return hourly, carriers
