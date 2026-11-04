@@ -1,37 +1,86 @@
-def pregunta_01():
+from pathlib import Path
+import pandas as pd
+
+
+def clean_campaign_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    El archivo `data/solicitudes_de_credito.csv.gz` contiene las solicitudes de
-    un programa de crédito, pero llegó sucio: tiene una columna de índice que
-    no pertenece a los datos, registros duplicados, registros incompletos y
-    valores que representan lo mismo escritos de formas distintas en los
-    campos de texto, las fechas, el estrato y el monto.
+    Los datos de una campaña de mercadeo bancario llegaron repartidos en diez
+    archivos comprimidos, `data/bank-marketing-campaing-*.csv.gz`, con
+    información mezclada del cliente, de la campaña y del contexto económico.
+    Su tarea es leerlos directamente desde los archivos comprimidos, sin
+    descomprimirlos a mano, y separarlos en tres tablas limpias.
 
-    Su tarea es limpiarlo y guardar el resultado en
-    `submission/solicitudes_de_credito.csv`, usando punto y coma (`;`) como
-    separador y sin el índice de Pandas.
+    Guarde cada tabla como un CSV sin comprimir en `submission/`, sin el índice
+    de Pandas y con las columnas en el orden indicado:
 
-    El archivo limpio debe cumplir lo siguiente:
+    1. `client.csv`: `client_id`, `age`, `job`, `marital`, `education`,
+       `credit_default` y `mortgage`.
+       - En `job`, elimine los puntos y cambie los guiones por guiones bajos.
+       - En `education`, cambie los puntos por guiones bajos y deje el valor
+         `unknown` como faltante.
+       - En `credit_default` y `mortgage`, escriba 1 si el valor es `yes` y 0
+         en cualquier otro caso.
 
-    - Contiene solamente las nueve columnas `sexo`, `tipo_de_emprendimiento`,
-      `idea_negocio`, `barrio`, `estrato`, `comuna_ciudadano`,
-      `fecha_de_beneficio`, `monto_del_credito` y `línea_credito`, en ese
-      orden.
-    - Los campos de texto están en minúsculas y sus palabras separadas por
-      espacios.
-    - `estrato` y `monto_del_credito` son números enteros, sin símbolos ni
-      separadores de miles.
-    - Todas las fechas de `fecha_de_beneficio` usan un mismo formato, por
-      ejemplo `AAAA-MM-DD`.
-    - No hay registros incompletos. La única excepción es
-      `comuna_ciudadano`: sus valores faltantes son parte de los datos
-      originales y deben conservarse.
-    - No hay registros duplicados.
+    2. `campaign.csv`: `client_id`, `number_contacts`, `contact_duration`,
+       `previous_campaign_contacts`, `previous_outcome`, `campaign_outcome` y
+       `last_contact_date`.
+       - En `previous_outcome`, escriba 1 si el valor es `success` y 0 en
+         cualquier otro caso.
+       - En `campaign_outcome`, escriba 1 si el valor es `yes` y 0 en
+         cualquier otro caso.
+       - Construya `last_contact_date` a partir de las columnas `month` y
+         `day`, usando el año 2022 y el formato `AAAA-MM-DD`.
 
-    Ejemplo del formato del archivo:
+    3. `economics.csv`: `client_id`, `cons_price_idx` y
+       `euribor_three_months`.
 
-        sexo;tipo_de_emprendimiento;idea_negocio;barrio;estrato;...
-        femenino;comercio;almacen de ropa en;los cerros el vergel;2;...
+    La función también debe retornar las tres tablas, en el orden `client`,
+    `campaign` y `economics`.
+
+    Ejemplo del formato de `campaign.csv`:
+
+        client_id,number_contacts,contact_duration,...,last_contact_date
+        0,1,261,...,2022-05-13
         ...
     """
 
-    raise NotImplementedError
+    data = Path("data")
+    files = sorted(data.glob("bank-marketing-campaing-*.csv.gz"))
+    df = pd.concat(
+        (pd.read_csv(f, index_col=0) for f in files), ignore_index=True
+    ).sort_values("client_id")
+
+    client = df[
+        ["client_id", "age", "job", "marital", "education", "credit_default", "mortgage"]
+    ].copy()
+    client["job"] = client["job"].str.replace(".", "", regex=False).str.replace("-", "_")
+    client["education"] = (
+        client["education"].str.replace(".", "_", regex=False).replace("unknown", pd.NA)
+    )
+    for col in ["credit_default", "mortgage"]:
+        client[col] = (client[col] == "yes").astype(int)
+
+    campaign = df[
+        [
+            "client_id",
+            "number_contacts",
+            "contact_duration",
+            "previous_campaign_contacts",
+            "previous_outcome",
+            "campaign_outcome",
+        ]
+    ].copy()
+    campaign["previous_outcome"] = (campaign["previous_outcome"] == "success").astype(int)
+    campaign["campaign_outcome"] = (campaign["campaign_outcome"] == "yes").astype(int)
+    campaign["last_contact_date"] = pd.to_datetime(
+        "2022-" + df["month"] + "-" + df["day"].astype(str), format="%Y-%b-%d"
+    ).dt.strftime("%Y-%m-%d")
+
+    economics = df[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
+
+    out = Path("submission")
+    out.mkdir(exist_ok=True)
+    for name, table in [("client", client), ("campaign", campaign), ("economics", economics)]:
+        table.to_csv(out / f"{name}.csv", index=False)
+
+    return client, campaign, economics
